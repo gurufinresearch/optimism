@@ -45,7 +45,7 @@ require (
 	github.com/libp2p/go-libp2p-pubsub v0.12.0
 	github.com/libp2p/go-libp2p-testing v0.12.0
 	github.com/lmittmann/w3 v0.19.5
-	github.com/mattn/go-isatty v0.0.20
+	github.com/mattn/go-isatty v0.0.24
 	github.com/minio/minio-go/v7 v7.0.85
 	github.com/minio/sha256-simd v1.0.1
 	github.com/multiformats/go-base32 v0.1.0
