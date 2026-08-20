@@ -3,6 +3,7 @@ package game
 import (
 	"context"
 	"fmt"
+	"github.com/ethereum-optimism/optimism/op-service/sources/batching/rpcblock"
 	"math/big"
 	"sync"
 	"testing"
@@ -123,7 +124,7 @@ func TestMonitorCreateAndProgressGameAgents(t *testing.T) {
 	addr2 := common.Address{0xbb}
 	source.games = []types.GameMetadata{newFDG(addr1, 9999), newFDG(addr2, 9999)}
 
-	require.NoError(t, monitor.progressGames(context.Background(), common.Hash{0x01}, 0))
+	require.NoError(t, monitor.progressGames(context.Background(), 0))
 
 	require.Len(t, sched.Scheduled(), 1)
 	require.Equal(t, []common.Address{addr1, addr2}, sched.Scheduled()[0])
@@ -135,7 +136,7 @@ func TestMonitorOnlyScheduleSpecifiedGame(t *testing.T) {
 	monitor, source, sched, _, _, stubClaimer := setupMonitorTest(t, []common.Address{addr2})
 	source.games = []types.GameMetadata{newFDG(addr1, 9999), newFDG(addr2, 9999)}
 
-	require.NoError(t, monitor.progressGames(context.Background(), common.Hash{0x01}, 0))
+	require.NoError(t, monitor.progressGames(context.Background(), 0))
 
 	require.Len(t, sched.Scheduled(), 1)
 	require.Equal(t, []common.Address{addr2}, sched.Scheduled()[0])
@@ -244,7 +245,7 @@ type stubGameSource struct {
 
 func (s *stubGameSource) GetGamesAtOrAfter(
 	_ context.Context,
-	_ common.Hash,
+	_ rpcblock.Block,
 	_ uint64,
 ) ([]types.GameMetadata, error) {
 	if s.fetchErr != nil {

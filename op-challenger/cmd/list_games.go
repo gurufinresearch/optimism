@@ -76,7 +76,9 @@ func ListGames(ctx *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to retrieve current head block: %w", err)
 	}
-	return listGames(ctx.Context, caller, contract, head.Hash(), gameWindow, sortBy, sortOrder)
+	// Pin by number rather than head.Hash(): the geth header hash is recomputed locally as
+	// keccak(rlp(header)) and will not resolve on an L1 that identifies blocks differently.
+	return listGames(ctx.Context, caller, contract, rpcblock.ByNumber(head.Number.Uint64()), gameWindow, sortBy, sortOrder)
 }
 
 type gameInfo struct {
@@ -88,7 +90,7 @@ type gameInfo struct {
 	err        error
 }
 
-func listGames(ctx context.Context, caller *batching.MultiCaller, factory *contracts.DisputeGameFactoryContract, block common.Hash, gameWindow time.Duration, sortBy, sortOrder string) error {
+func listGames(ctx context.Context, caller *batching.MultiCaller, factory *contracts.DisputeGameFactoryContract, block rpcblock.Block, gameWindow time.Duration, sortBy, sortOrder string) error {
 	earliestTimestamp := clock.MinCheckedTimestamp(clock.SystemClock, gameWindow)
 	games, err := factory.GetGamesAtOrAfter(ctx, block, earliestTimestamp)
 	if err != nil {
@@ -109,7 +111,7 @@ func listGames(ctx context.Context, caller *batching.MultiCaller, factory *contr
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			metadata, err := gameContract.GetGameMetadata(ctx, rpcblock.ByHash(block))
+			metadata, err := gameContract.GetGameMetadata(ctx, block)
 			if err != nil {
 				infos[idx].err = fmt.Errorf("failed to retrieve metadata for game %v: %w", gameProxy, err)
 				return

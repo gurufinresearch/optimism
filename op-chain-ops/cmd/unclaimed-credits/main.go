@@ -77,10 +77,12 @@ func unclaimedCreditsApp(ctx *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to retrieve current head block: %w", err)
 	}
-	return unclaimedCredits(ctx.Context, caller, contract, head.Hash(), gameWindow, gameAddr)
+	// Pin by number: head.Hash() is recomputed locally and will not resolve on an L1 that
+	// identifies blocks by something other than keccak(rlp(header)).
+	return unclaimedCredits(ctx.Context, caller, contract, rpcblock.ByNumber(head.Number.Uint64()), gameWindow, gameAddr)
 }
 
-func unclaimedCredits(ctx context.Context, caller *batching.MultiCaller, factory *contracts.DisputeGameFactoryContract, block common.Hash, gameWindow time.Duration, gameFilter common.Address) error {
+func unclaimedCredits(ctx context.Context, caller *batching.MultiCaller, factory *contracts.DisputeGameFactoryContract, block rpcblock.Block, gameWindow time.Duration, gameFilter common.Address) error {
 	earliestTimestamp := clock.MinCheckedTimestamp(clock.SystemClock, gameWindow)
 	games, err := factory.GetGamesAtOrAfter(ctx, block, earliestTimestamp)
 	if err != nil {
@@ -115,8 +117,8 @@ func unclaimedCredits(ctx context.Context, caller *batching.MultiCaller, factory
 	return enc.Encode(unclaimedCredits)
 }
 
-func unclaimedCreditsForGame(ctx context.Context, game contracts.FaultDisputeGameContract, block common.Hash, unclaimedCredits map[common.Address]*big.Int) error {
-	claims, err := game.GetAllClaims(ctx, rpcblock.ByHash(block))
+func unclaimedCreditsForGame(ctx context.Context, game contracts.FaultDisputeGameContract, block rpcblock.Block, unclaimedCredits map[common.Address]*big.Int) error {
+	claims, err := game.GetAllClaims(ctx, block)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve claims: %w", err)
 	}

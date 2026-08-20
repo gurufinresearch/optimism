@@ -3,6 +3,7 @@ package keccak
 import (
 	"context"
 	"errors"
+	"github.com/ethereum-optimism/optimism/op-service/sources/batching/rpcblock"
 	"math/big"
 	"testing"
 
@@ -43,7 +44,7 @@ func TestChallenge(t *testing.T) {
 		verifier, sender, oracle, challenger := setupChallengerTest(logger)
 		verifier.challenges[preimages[1].LargePreimageIdent] = keccakTypes.Challenge{StateMatrix: keccakTypes.StateSnapshot{0x01}}
 		verifier.challenges[preimages[2].LargePreimageIdent] = keccakTypes.Challenge{StateMatrix: keccakTypes.StateSnapshot{0x02}}
-		err := challenger.Challenge(context.Background(), common.Hash{0xaa}, oracle, preimages)
+		err := challenger.Challenge(context.Background(), rpcblock.ByNumber(3), oracle, preimages)
 		require.NoError(t, err)
 
 		// Should send the two challenges before returning
@@ -59,7 +60,7 @@ func TestChallenge(t *testing.T) {
 		verifier, sender, oracle, challenger := setupChallengerTest(logger)
 		verifier.challenges[preimages[1].LargePreimageIdent] = keccakTypes.Challenge{StateMatrix: keccakTypes.StateSnapshot{0x01}}
 		sender.err = errors.New("boom")
-		err := challenger.Challenge(context.Background(), common.Hash{0xaa}, oracle, preimages)
+		err := challenger.Challenge(context.Background(), rpcblock.ByNumber(3), oracle, preimages)
 		require.ErrorIs(t, err, sender.err)
 	})
 
@@ -69,7 +70,7 @@ func TestChallenge(t *testing.T) {
 		verifier, _, oracle, challenger := setupChallengerTest(logger)
 		verifier.challenges[preimages[1].LargePreimageIdent] = keccakTypes.Challenge{StateMatrix: keccakTypes.StateSnapshot{0x01}}
 		oracle.err = errors.New("boom")
-		err := challenger.Challenge(context.Background(), common.Hash{0xaa}, oracle, preimages)
+		err := challenger.Challenge(context.Background(), rpcblock.ByNumber(3), oracle, preimages)
 		require.NoError(t, err)
 
 		levelFilter := testlog.NewLevelFilter(log.LevelError)
@@ -84,7 +85,7 @@ func TestChallenge(t *testing.T) {
 		verifier, _, oracle, challenger := setupChallengerTest(logger)
 		verifier.challenges[preimages[1].LargePreimageIdent] = keccakTypes.Challenge{StateMatrix: keccakTypes.StateSnapshot{0x01}}
 		verifier.err = errors.New("boom")
-		err := challenger.Challenge(context.Background(), common.Hash{0xaa}, oracle, preimages)
+		err := challenger.Challenge(context.Background(), rpcblock.ByNumber(3), oracle, preimages)
 		require.NoError(t, err)
 
 		levelFilter := testlog.NewLevelFilter(log.LevelError)
@@ -98,7 +99,7 @@ func TestChallenge(t *testing.T) {
 
 		_, _, oracle, challenger := setupChallengerTest(logger)
 		// All preimages are valid
-		err := challenger.Challenge(context.Background(), common.Hash{0xaa}, oracle, preimages)
+		err := challenger.Challenge(context.Background(), rpcblock.ByNumber(3), oracle, preimages)
 		require.NoError(t, err)
 
 		levelFilter := testlog.NewLevelFilter(log.LevelError)
@@ -134,7 +135,7 @@ type stubVerifier struct {
 	err        error
 }
 
-func (s *stubVerifier) CreateChallenge(_ context.Context, _ common.Hash, _ VerifierPreimageOracle, preimage keccakTypes.LargePreimageMetaData) (keccakTypes.Challenge, error) {
+func (s *stubVerifier) CreateChallenge(_ context.Context, _ rpcblock.Block, _ VerifierPreimageOracle, preimage keccakTypes.LargePreimageMetaData) (keccakTypes.Challenge, error) {
 	if s.err != nil {
 		return keccakTypes.Challenge{}, s.err
 	}

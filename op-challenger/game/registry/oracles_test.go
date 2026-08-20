@@ -51,6 +51,6 @@ func (s stubPreimageOracle) Addr() common.Address {
 	return common.Address(s)
 }
 
-func (s stubPreimageOracle) GetActivePreimages(_ context.Context, _ common.Hash) ([]keccakTypes.LargePreimageMetaData, error) {
+func (s stubPreimageOracle) GetActivePreimages(_ context.Context, _ rpcblock.Block) ([]keccakTypes.LargePreimageMetaData, error) {
 	return nil, nil
 }

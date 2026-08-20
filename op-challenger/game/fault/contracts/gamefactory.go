@@ -59,18 +59,18 @@ func (f *DisputeGameFactoryContract) GetGameFromParameters(ctx context.Context, 
 	return result.GetAddress(0), nil
 }
 
-func (f *DisputeGameFactoryContract) GetGameCount(ctx context.Context, blockHash common.Hash) (uint64, error) {
+func (f *DisputeGameFactoryContract) GetGameCount(ctx context.Context, block rpcblock.Block) (uint64, error) {
 	defer f.metrics.StartContractRequest("GetGameCount")()
-	result, err := f.multiCaller.SingleCall(ctx, rpcblock.ByHash(blockHash), f.contract.Call(methodGameCount))
+	result, err := f.multiCaller.SingleCall(ctx, block, f.contract.Call(methodGameCount))
 	if err != nil {
 		return 0, fmt.Errorf("failed to load game count: %w", err)
 	}
 	return result.GetBigInt(0).Uint64(), nil
 }
 
-func (f *DisputeGameFactoryContract) GetGame(ctx context.Context, idx uint64, blockHash common.Hash) (types.GameMetadata, error) {
+func (f *DisputeGameFactoryContract) GetGame(ctx context.Context, idx uint64, block rpcblock.Block) (types.GameMetadata, error) {
 	defer f.metrics.StartContractRequest("GetGame")()
-	result, err := f.multiCaller.SingleCall(ctx, rpcblock.ByHash(blockHash), f.contract.Call(methodGameAtIndex, new(big.Int).SetUint64(idx)))
+	result, err := f.multiCaller.SingleCall(ctx, block, f.contract.Call(methodGameAtIndex, new(big.Int).SetUint64(idx)))
 	if err != nil {
 		return types.GameMetadata{}, fmt.Errorf("failed to load game %v: %w", idx, err)
 	}
@@ -86,9 +86,9 @@ func (f *DisputeGameFactoryContract) GetGameImpl(ctx context.Context, gameType f
 	return result.GetAddress(0), nil
 }
 
-func (f *DisputeGameFactoryContract) GetGamesAtOrAfter(ctx context.Context, blockHash common.Hash, earliestTimestamp uint64) ([]types.GameMetadata, error) {
+func (f *DisputeGameFactoryContract) GetGamesAtOrAfter(ctx context.Context, block rpcblock.Block, earliestTimestamp uint64) ([]types.GameMetadata, error) {
 	defer f.metrics.StartContractRequest("GetGamesAtOrAfter")()
-	count, err := f.GetGameCount(ctx, blockHash)
+	count, err := f.GetGameCount(ctx, block)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func (f *DisputeGameFactoryContract) GetGamesAtOrAfter(ctx context.Context, bloc
 			}
 		}
 
-		results, err := f.multiCaller.Call(ctx, rpcblock.ByHash(blockHash), calls...)
+		results, err := f.multiCaller.Call(ctx, block, calls...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch games: %w", err)
 		}
@@ -131,9 +131,9 @@ func (f *DisputeGameFactoryContract) GetGamesAtOrAfter(ctx context.Context, bloc
 	}
 }
 
-func (f *DisputeGameFactoryContract) GetAllGames(ctx context.Context, blockHash common.Hash) ([]types.GameMetadata, error) {
+func (f *DisputeGameFactoryContract) GetAllGames(ctx context.Context, block rpcblock.Block) ([]types.GameMetadata, error) {
 	defer f.metrics.StartContractRequest("GetAllGames")()
-	count, err := f.GetGameCount(ctx, blockHash)
+	count, err := f.GetGameCount(ctx, block)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +143,7 @@ func (f *DisputeGameFactoryContract) GetAllGames(ctx context.Context, blockHash 
 		calls[i] = f.contract.Call(methodGameAtIndex, new(big.Int).SetUint64(i))
 	}
 
-	results, err := f.multiCaller.Call(ctx, rpcblock.ByHash(blockHash), calls...)
+	results, err := f.multiCaller.Call(ctx, block, calls...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch games: %w", err)
 	}

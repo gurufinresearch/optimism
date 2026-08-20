@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-dispute-mon/mon/types"
 	rpcclient "github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-dispute-mon/config"
@@ -19,6 +20,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-dispute-mon/version"
 
 	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/contracts"
+	gameTypes "github.com/ethereum-optimism/optimism/op-challenger/game/types"
 	"github.com/ethereum-optimism/optimism/op-service/clock"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/httputil"
@@ -26,6 +28,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/oppprof"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/sources/batching"
+	"github.com/ethereum-optimism/optimism/op-service/sources/batching/rpcblock"
 )
 
 type Service struct {
@@ -150,7 +153,11 @@ func (s *Service) initExtractor(cfg *config.Config) {
 		s.logger,
 		s.cl,
 		s.game.CreateContract,
-		s.factoryContract.GetGamesAtOrAfter,
+		// op-dispute-mon keeps hash-pinned reads. The factory now takes an rpcblock.Block, so
+		// adapt here rather than changing this service's semantics.
+		func(ctx context.Context, blockHash common.Hash, earliestTimestamp uint64) ([]gameTypes.GameMetadata, error) {
+			return s.factoryContract.GetGamesAtOrAfter(ctx, rpcblock.ByHash(blockHash), earliestTimestamp)
+		},
 		cfg.IgnoredGames,
 		cfg.MaxConcurrency,
 		extract.NewClaimEnricher(),

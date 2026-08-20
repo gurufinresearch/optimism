@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/ethereum-optimism/optimism/op-service/sources/batching/rpcblock"
 	"io"
 	"math/big"
 	"math/rand"
@@ -83,7 +84,7 @@ func TestVerify(t *testing.T) {
 					preimage.LargePreimageIdent: {0xde},
 				},
 			}
-			challenge, err := verifier.CreateChallenge(context.Background(), common.Hash{0xff}, oracle, preimage)
+			challenge, err := verifier.CreateChallenge(context.Background(), rpcblock.ByNumber(1), oracle, preimage)
 			require.ErrorIs(t, err, test.expectedErr)
 			if err == nil {
 				// Leave checking the validity of the challenge to the StateMatrix tests
@@ -123,19 +124,19 @@ func TestCacheValidRoots(t *testing.T) {
 			preimage2.LargePreimageIdent: {0xde},
 		},
 	}
-	challenge, err := verifier.CreateChallenge(context.Background(), common.Hash{0xff}, oracle, preimage1)
+	challenge, err := verifier.CreateChallenge(context.Background(), rpcblock.ByNumber(1), oracle, preimage1)
 	require.ErrorIs(t, err, matrix.ErrValid)
 	require.Equal(t, keccakTypes.Challenge{}, challenge, "Should be valid")
 	require.EqualValues(t, 1, fetcher.fetchCount.Load(), "Should fetch data and validate")
 
 	// Should cache the validity
-	challenge, err = verifier.CreateChallenge(context.Background(), common.Hash{0xee}, oracle, preimage1)
+	challenge, err = verifier.CreateChallenge(context.Background(), rpcblock.ByNumber(2), oracle, preimage1)
 	require.ErrorIs(t, err, matrix.ErrValid)
 	require.Equal(t, keccakTypes.Challenge{}, challenge, "Should be valid")
 	require.EqualValues(t, 1, fetcher.fetchCount.Load(), "Should use cached validity")
 
 	// Should cache the validity across different challenges
-	challenge, err = verifier.CreateChallenge(context.Background(), common.Hash{0xee}, oracle, preimage2)
+	challenge, err = verifier.CreateChallenge(context.Background(), rpcblock.ByNumber(2), oracle, preimage2)
 	require.ErrorIs(t, err, matrix.ErrValid)
 	require.Equal(t, keccakTypes.Challenge{}, challenge, "Should be valid")
 	require.EqualValues(t, 1, fetcher.fetchCount.Load(), "Should use cached validity")
@@ -165,7 +166,7 @@ type stubFetcher struct {
 	fetchCount atomic.Int64
 }
 
-func (s *stubFetcher) FetchInputs(_ context.Context, _ common.Hash, _ fetcher.Oracle, _ keccakTypes.LargePreimageIdent) ([]keccakTypes.InputData, error) {
+func (s *stubFetcher) FetchInputs(_ context.Context, _ rpcblock.Block, _ fetcher.Oracle, _ keccakTypes.LargePreimageIdent) ([]keccakTypes.InputData, error) {
 	s.fetchCount.Add(1)
 	return s.inputs, nil
 }

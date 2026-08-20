@@ -24,7 +24,7 @@ type VerifierPreimageOracle interface {
 }
 
 type Fetcher interface {
-	FetchInputs(ctx context.Context, blockHash common.Hash, oracle fetcher.Oracle, ident keccakTypes.LargePreimageIdent) ([]keccakTypes.InputData, error)
+	FetchInputs(ctx context.Context, block rpcblock.Block, oracle fetcher.Oracle, ident keccakTypes.LargePreimageIdent) ([]keccakTypes.InputData, error)
 }
 
 type PreimageVerifier struct {
@@ -46,8 +46,8 @@ func NewPreimageVerifier(logger log.Logger, fetcher Fetcher) *PreimageVerifier {
 	}
 }
 
-func (v *PreimageVerifier) CreateChallenge(ctx context.Context, blockHash common.Hash, oracle VerifierPreimageOracle, preimage keccakTypes.LargePreimageMetaData) (keccakTypes.Challenge, error) {
-	root, err := oracle.GetProposalTreeRoot(ctx, rpcblock.ByHash(blockHash), preimage.LargePreimageIdent)
+func (v *PreimageVerifier) CreateChallenge(ctx context.Context, block rpcblock.Block, oracle VerifierPreimageOracle, preimage keccakTypes.LargePreimageMetaData) (keccakTypes.Challenge, error) {
+	root, err := oracle.GetProposalTreeRoot(ctx, block, preimage.LargePreimageIdent)
 	if err != nil {
 		return keccakTypes.Challenge{}, fmt.Errorf("failed to get proposal merkle root: %w", err)
 	}
@@ -60,7 +60,7 @@ func (v *PreimageVerifier) CreateChallenge(ctx context.Context, blockHash common
 		// actual length but the contracts enforce that and it can't be challenged on that basis.
 		return keccakTypes.Challenge{}, matrix.ErrValid
 	}
-	inputs, err := v.fetcher.FetchInputs(ctx, blockHash, oracle, preimage.LargePreimageIdent)
+	inputs, err := v.fetcher.FetchInputs(ctx, block, oracle, preimage.LargePreimageIdent)
 	if err != nil {
 		return keccakTypes.Challenge{}, fmt.Errorf("failed to fetch leaves: %w", err)
 	}

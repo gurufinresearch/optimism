@@ -35,8 +35,8 @@ type InputFetcher struct {
 	source L1Source
 }
 
-func (f *InputFetcher) FetchInputs(ctx context.Context, blockHash common.Hash, oracle Oracle, ident keccakTypes.LargePreimageIdent) ([]keccakTypes.InputData, error) {
-	blockNums, err := oracle.GetInputDataBlocks(ctx, rpcblock.ByHash(blockHash), ident)
+func (f *InputFetcher) FetchInputs(ctx context.Context, block rpcblock.Block, oracle Oracle, ident keccakTypes.LargePreimageIdent) ([]keccakTypes.InputData, error) {
+	blockNums, err := oracle.GetInputDataBlocks(ctx, block, ident)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve leaf block nums: %w", err)
 	}

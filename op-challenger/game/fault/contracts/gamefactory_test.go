@@ -38,7 +38,7 @@ func TestDisputeGameFactorySimpleGetters(t *testing.T) {
 			result:   big.NewInt(9876),
 			expected: uint64(9876),
 			call: func(game *DisputeGameFactoryContract) (any, error) {
-				return game.GetGameCount(context.Background(), blockHash)
+				return game.GetGameCount(context.Background(), rpcblock.ByHash(blockHash))
 			},
 		},
 	}
@@ -82,7 +82,7 @@ func TestLoadGame(t *testing.T) {
 	expectedGames := []types.GameMetadata{game0, game1, game2}
 	for idx, expected := range expectedGames {
 		expectGetGame(stubRpc, idx, blockHash, expected)
-		actual, err := factory.GetGame(context.Background(), uint64(idx), blockHash)
+		actual, err := factory.GetGame(context.Background(), uint64(idx), rpcblock.ByHash(blockHash))
 		require.NoError(t, err)
 		require.Equal(t, expected, actual)
 	}
@@ -115,7 +115,7 @@ func TestGetAllGames(t *testing.T) {
 	for idx, expected := range expectedGames {
 		expectGetGame(stubRpc, idx, blockHash, expected)
 	}
-	actualGames, err := factory.GetAllGames(context.Background(), blockHash)
+	actualGames, err := factory.GetAllGames(context.Background(), rpcblock.ByHash(blockHash))
 	require.NoError(t, err)
 	require.Equal(t, expectedGames, actualGames)
 }
@@ -155,7 +155,7 @@ func TestGetAllGamesAtOrAfter(t *testing.T) {
 			}
 			// Set an earliest timestamp that's in the middle of a batch
 			earliestTimestamp := uint64(test.earliestGameIdx)
-			actualGames, err := factory.GetGamesAtOrAfter(context.Background(), blockHash, earliestTimestamp)
+			actualGames, err := factory.GetGamesAtOrAfter(context.Background(), rpcblock.ByHash(blockHash), earliestTimestamp)
 			require.NoError(t, err)
 			// Games come back in descending timestamp order
 			var expectedGames []types.GameMetadata

@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ethereum-optimism/optimism/op-service/sources/batching/rpcblock"
 	"sync"
 
 	"github.com/ethereum-optimism/optimism/op-challenger/game/keccak/matrix"
 	keccakTypes "github.com/ethereum-optimism/optimism/op-challenger/game/keccak/types"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -24,7 +24,7 @@ type ChallengeMetrics interface {
 }
 
 type Verifier interface {
-	CreateChallenge(ctx context.Context, blockHash common.Hash, oracle VerifierPreimageOracle, preimage keccakTypes.LargePreimageMetaData) (keccakTypes.Challenge, error)
+	CreateChallenge(ctx context.Context, block rpcblock.Block, oracle VerifierPreimageOracle, preimage keccakTypes.LargePreimageMetaData) (keccakTypes.Challenge, error)
 }
 
 type Sender interface {
@@ -47,7 +47,7 @@ func NewPreimageChallenger(logger log.Logger, metrics ChallengeMetrics, verifier
 	}
 }
 
-func (c *PreimageChallenger) Challenge(ctx context.Context, blockHash common.Hash, oracle Oracle, preimages []keccakTypes.LargePreimageMetaData) error {
+func (c *PreimageChallenger) Challenge(ctx context.Context, block rpcblock.Block, oracle Oracle, preimages []keccakTypes.LargePreimageMetaData) error {
 	var txLock sync.Mutex
 	var wg sync.WaitGroup
 	var txs []txmgr.TxCandidate
@@ -57,7 +57,7 @@ func (c *PreimageChallenger) Challenge(ctx context.Context, blockHash common.Has
 		go func() {
 			defer wg.Done()
 			logger := c.log.New("oracle", oracle.Addr(), "claimant", preimage.Claimant, "uuid", preimage.UUID)
-			challenge, err := c.verifier.CreateChallenge(ctx, blockHash, oracle, preimage)
+			challenge, err := c.verifier.CreateChallenge(ctx, block, oracle, preimage)
 			if errors.Is(err, matrix.ErrValid) {
 				logger.Debug("Preimage is valid")
 				return

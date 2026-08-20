@@ -98,7 +98,7 @@ type Challenge struct {
 
 type LargePreimageOracle interface {
 	Addr() common.Address
-	GetActivePreimages(ctx context.Context, blockHash common.Hash) ([]LargePreimageMetaData, error)
+	GetActivePreimages(ctx context.Context, block rpcblock.Block) ([]LargePreimageMetaData, error)
 	GetInputDataBlocks(ctx context.Context, block rpcblock.Block, ident LargePreimageIdent) ([]uint64, error)
 	GetProposalTreeRoot(ctx context.Context, block rpcblock.Block, ident LargePreimageIdent) (common.Hash, error)
 	DecodeInputData(data []byte) (*big.Int, InputData, error)

@@ -90,7 +90,7 @@ func (s *stubOracle) Addr() common.Address {
 	return s.addr
 }
 
-func (s *stubOracle) GetActivePreimages(_ context.Context, _ common.Hash) ([]keccakTypes.LargePreimageMetaData, error) {
+func (s *stubOracle) GetActivePreimages(_ context.Context, _ rpcblock.Block) ([]keccakTypes.LargePreimageMetaData, error) {
 	s.m.Lock()
 	defer s.m.Unlock()
 	s.getPreimagesCount++
@@ -120,7 +120,7 @@ type stubChallenger struct {
 	checked []keccakTypes.LargePreimageMetaData
 }
 
-func (s *stubChallenger) Challenge(_ context.Context, _ common.Hash, _ Oracle, preimages []keccakTypes.LargePreimageMetaData) error {
+func (s *stubChallenger) Challenge(_ context.Context, _ rpcblock.Block, _ Oracle, preimages []keccakTypes.LargePreimageMetaData) error {
 	s.m.Lock()
 	defer s.m.Unlock()
 	s.checked = append(s.checked, preimages...)

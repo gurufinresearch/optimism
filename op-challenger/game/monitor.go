@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ethereum-optimism/optimism/op-service/sources/batching/rpcblock"
 	"sync"
 	"time"
 
@@ -21,7 +22,7 @@ import (
 
 // gameSource loads information about the games available to play
 type gameSource interface {
-	GetGamesAtOrAfter(ctx context.Context, blockHash common.Hash, earliestTimestamp uint64) ([]types.GameMetadata, error)
+	GetGamesAtOrAfter(ctx context.Context, block rpcblock.Block, earliestTimestamp uint64) ([]types.GameMetadata, error)
 }
 
 type RWClock interface {
@@ -103,9 +104,12 @@ func (m *gameMonitor) allowedGame(game common.Address) bool {
 	return false
 }
 
-func (m *gameMonitor) progressGames(ctx context.Context, blockHash common.Hash, blockNumber uint64) error {
+func (m *gameMonitor) progressGames(ctx context.Context, blockNumber uint64) error {
 	minGameTimestamp := clock.MinCheckedTimestamp(m.clock, m.gameWindow)
-	games, err := m.source.GetGamesAtOrAfter(ctx, blockHash, minGameTimestamp)
+	// Reads are pinned by block number rather than block hash. Pinning by hash only exists to
+	// guard against reorgs mid-scan, and it assumes the L1 indexes blocks by keccak(rlp(header)).
+	// Block number is the portable reference and is equivalent on an instant-finality L1.
+	games, err := m.source.GetGamesAtOrAfter(ctx, rpcblock.ByNumber(blockNumber), minGameTimestamp)
 	if err != nil {
 		return fmt.Errorf("failed to load games: %w", err)
 	}
@@ -130,7 +134,7 @@ func (m *gameMonitor) progressGames(ctx context.Context, blockHash common.Hash, 
 
 func (m *gameMonitor) onNewL1Head(ctx context.Context, sig eth.L1BlockRef) {
 	m.clock.SetTime(sig.Time)
-	if err := m.progressGames(ctx, sig.Hash, sig.Number); err != nil {
+	if err := m.progressGames(ctx, sig.Number); err != nil {
 		m.logger.Error("Failed to progress games", "err", err)
 	}
 	if err := m.preimages.Schedule(sig.Hash, sig.Number); err != nil {

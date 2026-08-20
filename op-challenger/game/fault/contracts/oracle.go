@@ -231,8 +231,7 @@ func abiEncodeSnapshot(packedState keccakTypes.StateSnapshot) libKeccakStateMatr
 	return libKeccakStateMatrix{State: packedState}
 }
 
-func (c *PreimageOracleContractLatest) GetActivePreimages(ctx context.Context, blockHash common.Hash) ([]keccakTypes.LargePreimageMetaData, error) {
-	block := rpcblock.ByHash(blockHash)
+func (c *PreimageOracleContractLatest) GetActivePreimages(ctx context.Context, block rpcblock.Block) ([]keccakTypes.LargePreimageMetaData, error) {
 	results, err := batching.ReadArray(ctx, c.multiCaller, block, c.contract.Call(methodProposalCount), func(i *big.Int) *batching.ContractCall {
 		return c.contract.Call(methodProposals, i)
 	})
@@ -488,7 +487,7 @@ type PreimageOracleContract interface {
 		postState keccakTypes.Leaf,
 		postStateProof merkle.Proof,
 	) (txmgr.TxCandidate, error)
-	GetActivePreimages(ctx context.Context, blockHash common.Hash) ([]keccakTypes.LargePreimageMetaData, error)
+	GetActivePreimages(ctx context.Context, block rpcblock.Block) ([]keccakTypes.LargePreimageMetaData, error)
 	GetProposalMetadata(ctx context.Context, block rpcblock.Block, idents ...keccakTypes.LargePreimageIdent) ([]keccakTypes.LargePreimageMetaData, error)
 	GetProposalTreeRoot(ctx context.Context, block rpcblock.Block, ident keccakTypes.LargePreimageIdent) (common.Hash, error)
 	GetInputDataBlocks(ctx context.Context, block rpcblock.Block, ident keccakTypes.LargePreimageIdent) ([]uint64, error)

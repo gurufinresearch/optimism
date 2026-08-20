@@ -58,7 +58,7 @@ var (
 func TestFetchLeaves_NoBlocks(t *testing.T) {
 	fetcher, oracle, _ := setupFetcherTest(t)
 	oracle.leafBlocks = []uint64{}
-	leaves, err := fetcher.FetchInputs(context.Background(), blockHash, oracle, ident)
+	leaves, err := fetcher.FetchInputs(context.Background(), rpcblock.ByHash(blockHash), oracle, ident)
 	require.NoError(t, err)
 	require.Empty(t, leaves)
 }
@@ -68,7 +68,7 @@ func TestFetchLeaves_ErrorOnUnavailableInputBlocks(t *testing.T) {
 	mockErr := fmt.Errorf("oops")
 	oracle.inputDataBlocksError = mockErr
 
-	leaves, err := fetcher.FetchInputs(context.Background(), blockHash, oracle, ident)
+	leaves, err := fetcher.FetchInputs(context.Background(), rpcblock.ByHash(blockHash), oracle, ident)
 	require.ErrorContains(t, err, "failed to retrieve leaf block nums")
 	require.Empty(t, leaves)
 }
@@ -79,7 +79,7 @@ func TestFetchLeaves_ErrorOnUnavailableL1Block(t *testing.T) {
 	oracle.leafBlocks = []uint64{blockNum}
 
 	// No txs means stubL1Source will return an error when we try to fetch the block
-	leaves, err := fetcher.FetchInputs(context.Background(), blockHash, oracle, ident)
+	leaves, err := fetcher.FetchInputs(context.Background(), rpcblock.ByHash(blockHash), oracle, ident)
 	require.ErrorContains(t, err, fmt.Sprintf("failed getting tx for block %v", blockNum))
 	require.Empty(t, leaves)
 }
@@ -105,7 +105,7 @@ func TestFetchLeaves_SingleTxSingleLog(t *testing.T) {
 			tx := l1Source.createTx(blockNum, tc.txSender, tc.txModifier)
 			l1Source.createLog(tx, proposal)
 
-			inputs, err := fetcher.FetchInputs(context.Background(), blockHash, oracle, ident)
+			inputs, err := fetcher.FetchInputs(context.Background(), rpcblock.ByHash(blockHash), oracle, ident)
 			require.NoError(t, err)
 			require.Equal(t, []keccakTypes.InputData{input1}, inputs)
 		})
@@ -123,7 +123,7 @@ func TestFetchLeaves_SingleTxMultipleLogs(t *testing.T) {
 	l1Source.createLog(tx, proposal1)
 	l1Source.createLog(tx, proposal2)
 
-	inputs, err := fetcher.FetchInputs(context.Background(), blockHash, oracle, ident)
+	inputs, err := fetcher.FetchInputs(context.Background(), rpcblock.ByHash(blockHash), oracle, ident)
 	require.NoError(t, err)
 	require.Equal(t, []keccakTypes.InputData{input1, input2}, inputs)
 }
@@ -147,7 +147,7 @@ func TestFetchLeaves_MultipleBlocksAndLeaves(t *testing.T) {
 	l1Source.createLog(block2TxB, proposal3)
 	l1Source.createLog(block2TxB, proposal4)
 
-	inputs, err := fetcher.FetchInputs(context.Background(), blockHash, oracle, ident)
+	inputs, err := fetcher.FetchInputs(context.Background(), rpcblock.ByHash(blockHash), oracle, ident)
 	require.NoError(t, err)
 	require.Equal(t, []keccakTypes.InputData{input1, input2, input3, input4}, inputs)
 }
@@ -167,7 +167,7 @@ func TestFetchLeaves_SkipLogFromWrongContract(t *testing.T) {
 	tx2 := l1Source.createTx(blockNum, claimantKey, ValidTx)
 	l1Source.createLog(tx2, proposal2)
 
-	inputs, err := fetcher.FetchInputs(context.Background(), blockHash, oracle, ident)
+	inputs, err := fetcher.FetchInputs(context.Background(), rpcblock.ByHash(blockHash), oracle, ident)
 	require.NoError(t, err)
 	require.Equal(t, []keccakTypes.InputData{input1}, inputs)
 }
@@ -187,7 +187,7 @@ func TestFetchLeaves_SkipProposalWithWrongUUID(t *testing.T) {
 	tx2 := l1Source.createTx(blockNum, claimantKey, ValidTx)
 	l1Source.createLog(tx2, proposal2)
 
-	inputs, err := fetcher.FetchInputs(context.Background(), blockHash, oracle, ident)
+	inputs, err := fetcher.FetchInputs(context.Background(), rpcblock.ByHash(blockHash), oracle, ident)
 	require.NoError(t, err)
 	require.Equal(t, []keccakTypes.InputData{input1}, inputs)
 }
@@ -207,7 +207,7 @@ func TestFetchLeaves_SkipProposalWithWrongClaimant(t *testing.T) {
 	tx2 := l1Source.createTx(blockNum, claimantKey, ValidTx)
 	l1Source.createLog(tx2, proposal2)
 
-	inputs, err := fetcher.FetchInputs(context.Background(), blockHash, oracle, ident)
+	inputs, err := fetcher.FetchInputs(context.Background(), rpcblock.ByHash(blockHash), oracle, ident)
 	require.NoError(t, err)
 	require.Equal(t, []keccakTypes.InputData{input1}, inputs)
 }
@@ -227,7 +227,7 @@ func TestFetchLeaves_SkipInvalidProposal(t *testing.T) {
 	tx2 := l1Source.createTx(blockNum, claimantKey, ValidTx)
 	l1Source.createLog(tx2, proposal2)
 
-	inputs, err := fetcher.FetchInputs(context.Background(), blockHash, oracle, ident)
+	inputs, err := fetcher.FetchInputs(context.Background(), rpcblock.ByHash(blockHash), oracle, ident)
 	require.NoError(t, err)
 	require.Equal(t, []keccakTypes.InputData{input1}, inputs)
 }
@@ -248,7 +248,7 @@ func TestFetchLeaves_SkipProposalWithInsufficientData(t *testing.T) {
 	tx2 := l1Source.createTx(blockNum, claimantKey, ValidTx)
 	l1Source.createLog(tx2, proposal2)
 
-	inputs, err := fetcher.FetchInputs(context.Background(), blockHash, oracle, ident)
+	inputs, err := fetcher.FetchInputs(context.Background(), rpcblock.ByHash(blockHash), oracle, ident)
 	require.NoError(t, err)
 	require.Equal(t, []keccakTypes.InputData{input1}, inputs)
 }
@@ -268,7 +268,7 @@ func TestFetchLeaves_SkipProposalMissingCallData(t *testing.T) {
 	tx2 := l1Source.createTx(blockNum, claimantKey, ValidTx)
 	l1Source.createLog(tx2, proposal2)
 
-	inputs, err := fetcher.FetchInputs(context.Background(), blockHash, oracle, ident)
+	inputs, err := fetcher.FetchInputs(context.Background(), rpcblock.ByHash(blockHash), oracle, ident)
 	require.NoError(t, err)
 	require.Equal(t, []keccakTypes.InputData{input1}, inputs)
 }
@@ -288,7 +288,7 @@ func TestFetchLeaves_SkipTxWithReceiptStatusFail(t *testing.T) {
 	tx2 := l1Source.createTx(blockNum, claimantKey, ValidTx)
 	l1Source.createLog(tx2, proposal2)
 
-	inputs, err := fetcher.FetchInputs(context.Background(), blockHash, oracle, ident)
+	inputs, err := fetcher.FetchInputs(context.Background(), rpcblock.ByHash(blockHash), oracle, ident)
 	require.NoError(t, err)
 	require.Equal(t, []keccakTypes.InputData{input1}, inputs)
 }
@@ -308,7 +308,7 @@ func TestFetchLeaves_ErrorsOnMissingReceipt(t *testing.T) {
 	l1Source.createLog(tx2, proposal2)
 	l1Source.rcptStatus[tx2.Hash()] = MissingReceiptStatus
 
-	input, err := fetcher.FetchInputs(context.Background(), blockHash, oracle, ident)
+	input, err := fetcher.FetchInputs(context.Background(), rpcblock.ByHash(blockHash), oracle, ident)
 	require.ErrorContains(t, err, fmt.Sprintf("failed to retrieve receipt for tx %v", tx2.Hash()))
 	require.Nil(t, input)
 }
@@ -326,7 +326,7 @@ func TestFetchLeaves_ErrorsWhenNoValidLeavesInBlock(t *testing.T) {
 	// Irrelevant tx - no logs are emitted
 	l1Source.createTx(blockNum, claimantKey, ValidTx)
 
-	inputs, err := fetcher.FetchInputs(context.Background(), blockHash, oracle, ident)
+	inputs, err := fetcher.FetchInputs(context.Background(), rpcblock.ByHash(blockHash), oracle, ident)
 	require.ErrorIs(t, err, ErrNoLeavesFound)
 	require.Nil(t, inputs)
 }

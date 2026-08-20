@@ -337,7 +337,7 @@ func TestGetActivePreimages(t *testing.T) {
 
 			blockHash := common.Hash{0xaa}
 			_, oracle, proposals := setupPreimageOracleTestWithProposals(t, version, rpcblock.ByHash(blockHash))
-			preimages, err := oracle.GetActivePreimages(context.Background(), blockHash)
+			preimages, err := oracle.GetActivePreimages(context.Background(), rpcblock.ByHash(blockHash))
 			require.NoError(t, err)
 			require.Equal(t, proposals, preimages)
 		})
