@@ -1,6 +1,7 @@
 package standard
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -52,57 +53,57 @@ var VaultMinWithdrawalAmount = mustHexBigFromHex("0x8ac7230489e80000")
 var GovernanceTokenOwner = common.HexToAddress("0xDeaDDEaDDeAdDeAdDEAdDEaddeAddEAdDEAdDEad")
 
 func L1VersionsFor(chainID uint64) (validation.Versions, error) {
-	switch chainID {
-	case 1:
-		return validation.StandardVersionsMainnet, nil
-	case 11155111:
-		return validation.StandardVersionsSepolia, nil
-	default:
-		return nil, fmt.Errorf("unsupported chain ID: %d", chainID)
+	profile, err := L1ProfileFor(chainID)
+	if err != nil {
+		return nil, err
 	}
+	return profile.Versions, nil
 }
 
 func GuardianAddressFor(chainID uint64) (common.Address, error) {
-	switch chainID {
-	case 1:
-		return common.Address(validation.StandardConfigRolesMainnet.Guardian), nil
-	case 11155111:
-		return common.Address(validation.StandardConfigRolesSepolia.Guardian), nil
-	default:
-		return common.Address{}, fmt.Errorf("unsupported chain ID: %d", chainID)
+	profile, err := L1ProfileFor(chainID)
+	if err != nil {
+		return common.Address{}, err
 	}
+	return common.Address(profile.Roles.Guardian), nil
 }
 
 func ChallengerAddressFor(chainID uint64) (common.Address, error) {
-	switch chainID {
-	case 1:
-		return common.Address(validation.StandardConfigRolesMainnet.Challenger), nil
-	case 11155111:
-		return common.Address(validation.StandardConfigRolesSepolia.Challenger), nil
-	default:
-		return common.Address{}, fmt.Errorf("unsupported chain ID: %d", chainID)
+	profile, err := L1ProfileFor(chainID)
+	if err != nil {
+		return common.Address{}, err
 	}
+	return common.Address(profile.Roles.Challenger), nil
 }
 
 func SuperchainFor(chainID uint64) (superchain.Superchain, error) {
-	switch chainID {
-	case 1:
-		return superchain.GetSuperchain("mainnet")
-	case 11155111:
-		return superchain.GetSuperchain("sepolia")
-	default:
-		return superchain.Superchain{}, fmt.Errorf("unsupported chain ID: %d", chainID)
+	profile, err := L1ProfileFor(chainID)
+	if err != nil {
+		return superchain.Superchain{}, err
 	}
+	if profile.SuperchainName == "" {
+		return superchain.Superchain{}, fmt.Errorf("chain ID %d (%s) is not in the superchain registry", chainID, profile.Name)
+	}
+	return superchain.GetSuperchain(profile.SuperchainName)
 }
 
 func OPCMImplAddressFor(chainID uint64, tag string) (common.Address, error) {
 	versionsData, err := L1VersionsFor(chainID)
 	if err != nil {
-		return common.Address{}, fmt.Errorf("unsupported chainID: %d", chainID)
+		if errors.Is(err, ErrUnsupportedChainID) {
+			return common.Address{}, fmt.Errorf("unsupported chainID: %d", chainID)
+		}
+		return common.Address{}, err
 	}
 	versionData, ok := versionsData[validation.Semver(tag)]
 	if !ok {
 		return common.Address{}, fmt.Errorf("unsupported tag for chainID %d: %s", chainID, tag)
+	}
+	if versionData.OPContractsManager == nil {
+		return common.Address{}, fmt.Errorf(
+			"no OPCM address known for chainID %d and tag %s: deploy one with 'op-deployer bootstrap implementations', then set %s",
+			chainID, tag, CustomChainOPCMImplEnvVar,
+		)
 	}
 	if versionData.OPContractsManager.Address != nil {
 		// op-contracts/v1.8.0 and earlier use proxied opcm
@@ -116,50 +117,39 @@ func OPCMImplAddressFor(chainID uint64, tag string) (common.Address, error) {
 }
 
 // SuperchainProxyAdminAddrFor returns the address of the Superchain ProxyAdmin for the given chain ID.
-// These have been verified to be the ProxyAdmin addresses on Mainnet and Sepolia.
+// The Mainnet and Sepolia addresses in the L1 profile registry have been verified to be the
+// ProxyAdmin addresses on those chains.
 // DO NOT MODIFY THIS METHOD WITHOUT CLEARING IT WITH THE EVM SAFETY TEAM.
 func SuperchainProxyAdminAddrFor(chainID uint64) (common.Address, error) {
-	switch chainID {
-	case 1:
-		return common.HexToAddress("0x543bA4AADBAb8f9025686Bd03993043599c6fB04"), nil
-	case 11155111:
-		return common.HexToAddress("0x189aBAAaa82DfC015A588A7dbaD6F13b1D3485Bc"), nil
-	default:
-		return common.Address{}, fmt.Errorf("unsupported chain ID: %d", chainID)
+	profile, err := L1ProfileFor(chainID)
+	if err != nil {
+		return common.Address{}, err
 	}
+	return profile.SuperchainProxyAdmin, nil
 }
 
 func L1ProxyAdminOwner(chainID uint64) (common.Address, error) {
-	switch chainID {
-	case 1:
-		return common.Address(validation.StandardConfigRolesMainnet.L1ProxyAdminOwner), nil
-	case 11155111:
-		return common.Address(validation.StandardConfigRolesSepolia.L1ProxyAdminOwner), nil
-	default:
-		return common.Address{}, fmt.Errorf("unsupported chain ID: %d", chainID)
+	profile, err := L1ProfileFor(chainID)
+	if err != nil {
+		return common.Address{}, err
 	}
+	return common.Address(profile.Roles.L1ProxyAdminOwner), nil
 }
 
 func L2ProxyAdminOwner(chainID uint64) (common.Address, error) {
-	switch chainID {
-	case 1:
-		return common.Address(validation.StandardConfigRolesMainnet.L2ProxyAdminOwner), nil
-	case 11155111:
-		return common.Address(validation.StandardConfigRolesSepolia.L2ProxyAdminOwner), nil
-	default:
-		return common.Address{}, fmt.Errorf("unsupported chain ID: %d", chainID)
+	profile, err := L1ProfileFor(chainID)
+	if err != nil {
+		return common.Address{}, err
 	}
+	return common.Address(profile.Roles.L2ProxyAdminOwner), nil
 }
 
 func ProtocolVersionsOwner(chainID uint64) (common.Address, error) {
-	switch chainID {
-	case 1:
-		return common.Address(validation.StandardConfigRolesMainnet.ProtocolVersionsOwner), nil
-	case 11155111:
-		return common.Address(validation.StandardConfigRolesSepolia.ProtocolVersionsOwner), nil
-	default:
-		return common.Address{}, fmt.Errorf("unsupported chain ID: %d", chainID)
+	profile, err := L1ProfileFor(chainID)
+	if err != nil {
+		return common.Address{}, err
 	}
+	return common.Address(profile.Roles.ProtocolVersionsOwner), nil
 }
 
 // DefaultHardforkScheduleForTag is used to determine which hardforks should be activated by default given a

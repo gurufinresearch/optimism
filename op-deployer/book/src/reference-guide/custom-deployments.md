@@ -120,6 +120,55 @@ l2ContractsLocator = "tag://..."
 Once `apply` completes successfully, you can use the `inspect` family of commands to download your chain's L2
 genesis and rollup config files.
 
+### Custom L1 chains
+
+Out of the box, the `standard` and `standard-overrides` intent types only know about Ethereum mainnet (chain ID `1`)
+and Sepolia (chain ID `11155111`). Those are the only chains in the superchain registry, which is where OP Deployer
+reads the OPCM address and the standard role addresses from. Running `op-deployer init --intent-type
+standard-overrides` against any other L1 fails with `unsupported chain ID`.
+
+To deploy onto a custom L1, describe it with the `CUSTOM_CHAIN_*` environment variables. When `CUSTOM_CHAIN_ID` is set
+to a non-zero value, OP Deployer registers an additional L1 alongside mainnet and Sepolia for the duration of the
+process:
+
+| Variable | Description |
+| --- | --- |
+| `CUSTOM_CHAIN_ID` | EIP-155 chain ID of the L1. Required. Must not be `1` or `11155111`. |
+| `CUSTOM_CHAIN_NAME` | Human readable name used in error messages. Defaults to `custom-<id>`. |
+| `CUSTOM_CHAIN_OPCM_IMPL` | OPCM implementation address, taken from the `bootstrap implementations` outfile. |
+| `CUSTOM_CHAIN_OPCM_TAG` | Contracts tag the OPCM address belongs to. Defaults to the current tag. |
+| `CUSTOM_CHAIN_GUARDIAN` | Guardian role address. |
+| `CUSTOM_CHAIN_CHALLENGER` | Challenger role address. |
+| `CUSTOM_CHAIN_L1_PROXY_ADMIN_OWNER` | L1 ProxyAdmin owner role address. |
+| `CUSTOM_CHAIN_L2_PROXY_ADMIN_OWNER` | L2 ProxyAdmin owner role address. |
+| `CUSTOM_CHAIN_PROTOCOL_VERSIONS_OWNER` | ProtocolVersions owner role address. |
+| `CUSTOM_CHAIN_SUPERCHAIN_PROXY_ADMIN` | Superchain ProxyAdmin address. |
+| `CUSTOM_CHAIN_EXPLORER_API_URL` | Etherscan-compatible API endpoint (for example a Blockscout `/api`), used by `verify`. |
+
+These values seed the generated `intent.toml`, which remains the source of truth once `init` has run. Roles you leave
+unset come through as zero addresses and are rejected by `apply`, exactly as they are with the `custom` intent type.
+
+```shell
+export CUSTOM_CHAIN_ID=4242
+export CUSTOM_CHAIN_NAME=my-l1
+export CUSTOM_CHAIN_OPCM_IMPL=0x...   # from the bootstrap implementations outfile
+export CUSTOM_CHAIN_CHALLENGER=0x...
+export CUSTOM_CHAIN_L1_PROXY_ADMIN_OWNER=0x...
+export CUSTOM_CHAIN_L2_PROXY_ADMIN_OWNER=0x...
+
+op-deployer init \
+  --intent-type standard-overrides \
+  --l1-chain-id "$CUSTOM_CHAIN_ID" \
+  --l2-chain-ids 111 \
+  --workdir .deployer
+```
+
+A custom L1 is not part of a registered Superchain, so commands that read superchain registry data for the L1 report
+`is not in the superchain registry` rather than silently falling back to mainnet's configuration.
+
+The `custom` intent type remains available and needs none of this. It leaves every field for you to fill in by hand
+and works with any L1 chain ID.
+
 ## Upgrading
 
 You can upgrade between smart contract versions using the `upgrade` [family of commands][upgrade]. As a prerequisite,

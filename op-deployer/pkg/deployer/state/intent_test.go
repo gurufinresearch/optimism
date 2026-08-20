@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/ethereum-optimism/optimism/op-chain-ops/addresses"
+	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/standard"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
@@ -174,6 +175,36 @@ func TestValidateCustomValues(t *testing.T) {
 			require.ErrorIs(t, err, tt.err)
 		})
 	}
+}
+
+// TestNewIntentStandardCustomL1 covers `op-deployer init --intent-type standard-overrides`
+// against an L1 that is not in the superchain registry, configured via CUSTOM_CHAIN_*.
+func TestNewIntentStandardCustomL1(t *testing.T) {
+	const (
+		customChainID = uint64(4242)
+		opcmImpl      = "0x23f49a3c87840405aeeaef5AD6bEE0c503C43345"
+		challenger    = "0x2222222222222222222222222222222222222222"
+		l1PAO         = "0x3333333333333333333333333333333333333333"
+		l2PAO         = "0x4444444444444444444444444444444444444444"
+	)
+
+	t.Setenv(standard.CustomChainIDEnvVar, "4242")
+	t.Setenv(standard.CustomChainNameEnvVar, "guru-testnet")
+	t.Setenv(standard.CustomChainOPCMImplEnvVar, opcmImpl)
+	t.Setenv(standard.CustomChainChallengerEnvVar, challenger)
+	t.Setenv(standard.CustomChainL1ProxyAdminOwnerEnvVar, l1PAO)
+	t.Setenv(standard.CustomChainL2ProxyAdminOwnerEnvVar, l2PAO)
+
+	intent, err := NewIntent(IntentTypeStandardOverrides, customChainID, []common.Hash{common.HexToHash("0x336")})
+	require.NoError(t, err)
+
+	require.Equal(t, customChainID, intent.L1ChainID)
+	require.Equal(t, common.HexToAddress(opcmImpl), *intent.OPCMAddress)
+	require.Len(t, intent.Chains, 1)
+	require.Equal(t, common.HexToAddress(challenger), intent.Chains[0].Roles.Challenger)
+	require.Equal(t, common.HexToAddress(l1PAO), intent.Chains[0].Roles.L1ProxyAdminOwner)
+	require.Equal(t, common.HexToAddress(l2PAO), intent.Chains[0].Roles.L2ProxyAdminOwner)
+	require.Equal(t, standard.GasLimit, intent.Chains[0].GasLimit)
 }
 
 func setSuperchainRoles(intent *Intent) {

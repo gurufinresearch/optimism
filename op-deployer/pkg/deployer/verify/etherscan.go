@@ -3,11 +3,14 @@ package verify
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/standard"
 
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/time/rate"
@@ -42,9 +45,21 @@ func getAPIEndpoint(l1ChainID uint64) (string, error) {
 		return "https://api-sepolia.etherscan.io/api", nil // eth-sepolia
 	case 84532:
 		return "https://api-sepolia.basescan.org/api", nil // base-sepolia
-	default:
-		return "", fmt.Errorf("unsupported L1 chain ID: %d", l1ChainID)
 	}
+
+	// Custom L1s carry their Etherscan-compatible endpoint (e.g. a Blockscout /api) on their
+	// profile. See standard.CustomChainExplorerAPIURLEnvVar.
+	profile, err := standard.L1ProfileFor(l1ChainID)
+	if err != nil {
+		if errors.Is(err, standard.ErrUnsupportedChainID) {
+			return "", fmt.Errorf("unsupported L1 chain ID: %d", l1ChainID)
+		}
+		return "", err
+	}
+	if profile.ExplorerAPIURL == "" {
+		return "", fmt.Errorf("no explorer API URL known for L1 chain ID %d, set %s", l1ChainID, standard.CustomChainExplorerAPIURLEnvVar)
+	}
+	return profile.ExplorerAPIURL, nil
 }
 
 func NewEtherscanClient(apiKey string, url string, rateLimiter *rate.Limiter) *EtherscanClient {
