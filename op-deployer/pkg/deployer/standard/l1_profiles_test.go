@@ -3,6 +3,7 @@ package standard
 import (
 	"testing"
 
+	"github.com/ethereum-optimism/optimism/op-chain-ops/script"
 	"github.com/ethereum-optimism/superchain-registry/validation"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -18,6 +19,7 @@ const (
 	testChallengerAddr  = "0x2222222222222222222222222222222222222222"
 	testProxyAdminAddr  = "0x3333333333333333333333333333333333333333"
 	testExplorerAPIAddr = "https://explorer.guru.example/api"
+	testCreate2Deployer = "0x4444444444444444444444444444444444444444"
 )
 
 // clearCustomChainEnv makes the custom chain env vars deterministic for a test, regardless of
@@ -35,6 +37,7 @@ func clearCustomChainEnv(t *testing.T) {
 		CustomChainProtocolVersionsOwnerVar,
 		CustomChainSuperchainProxyAdminVar,
 		CustomChainExplorerAPIURLEnvVar,
+		CustomChainCreate2DeployerEnvVar,
 	} {
 		t.Setenv(envVar, "")
 	}
@@ -52,10 +55,13 @@ func TestL1Profiles_BuiltInsOnly(t *testing.T) {
 	require.Equal(t, validation.StandardConfigRolesMainnet, mainnet.Roles)
 	require.Equal(t, validation.StandardVersionsMainnet, mainnet.Versions)
 
+	require.Equal(t, script.DefaultDeterministicDeployerAddress, mainnet.Create2Deployer)
+
 	sepolia := profiles[11155111]
 	require.Equal(t, "sepolia", sepolia.SuperchainName)
 	require.Equal(t, validation.StandardConfigRolesSepolia, sepolia.Roles)
 	require.Equal(t, validation.StandardVersionsSepolia, sepolia.Versions)
+	require.Equal(t, script.DefaultDeterministicDeployerAddress, sepolia.Create2Deployer)
 
 	_, err = L1ProfileFor(testCustomChainID)
 	require.ErrorContains(t, err, "unsupported chain ID: 4242")
@@ -73,6 +79,7 @@ func TestL1Profiles_CustomChain(t *testing.T) {
 	t.Setenv(CustomChainProtocolVersionsOwnerVar, testRoleAddr)
 	t.Setenv(CustomChainSuperchainProxyAdminVar, testProxyAdminAddr)
 	t.Setenv(CustomChainExplorerAPIURLEnvVar, testExplorerAPIAddr)
+	t.Setenv(CustomChainCreate2DeployerEnvVar, testCreate2Deployer)
 
 	profiles, err := L1Profiles()
 	require.NoError(t, err)
@@ -230,4 +237,57 @@ func TestL1Profiles_Errors(t *testing.T) {
 			require.ErrorContains(t, err, tt.errPart)
 		})
 	}
+}
+
+func TestCreate2Deployer_FallsBackWhenUnset(t *testing.T) {
+	clearCustomChainEnv(t)
+
+	// the resolver alone
+	addr, err := Create2DeployerFromEnv()
+	require.NoError(t, err)
+	require.Equal(t, script.DefaultDeterministicDeployerAddress, addr)
+
+	// and through a custom profile, which must not lose the canonical default
+	t.Setenv(CustomChainIDEnvVar, "4242")
+	profile, err := L1ProfileFor(testCustomChainID)
+	require.NoError(t, err)
+	require.Equal(t, script.DefaultDeterministicDeployerAddress, profile.Create2Deployer)
+}
+
+func TestCreate2Deployer_Override(t *testing.T) {
+	clearCustomChainEnv(t)
+	t.Setenv(CustomChainIDEnvVar, "4242")
+	t.Setenv(CustomChainCreate2DeployerEnvVar, testCreate2Deployer)
+
+	profile, err := L1ProfileFor(testCustomChainID)
+	require.NoError(t, err)
+	require.Equal(t, common.HexToAddress(testCreate2Deployer), profile.Create2Deployer)
+}
+
+func TestCreate2Deployer_MalformedIsAnError(t *testing.T) {
+	clearCustomChainEnv(t)
+	t.Setenv(CustomChainCreate2DeployerEnvVar, "not-an-address")
+
+	_, err := Create2DeployerFromEnv()
+	require.ErrorContains(t, err, CustomChainCreate2DeployerEnvVar)
+}
+
+func TestApplyCreate2DeployerOverride(t *testing.T) {
+	original := script.DeterministicDeployerAddress
+	t.Cleanup(func() { script.DeterministicDeployerAddress = original })
+
+	// unset -> canonical
+	clearCustomChainEnv(t)
+	require.NoError(t, ApplyCreate2DeployerOverride())
+	require.Equal(t, script.DefaultDeterministicDeployerAddress, script.DeterministicDeployerAddress)
+
+	// set -> override, which every consumer of the package var picks up
+	t.Setenv(CustomChainCreate2DeployerEnvVar, testCreate2Deployer)
+	require.NoError(t, ApplyCreate2DeployerOverride())
+	require.Equal(t, common.HexToAddress(testCreate2Deployer), script.DeterministicDeployerAddress)
+
+	// malformed -> error, and the address is left alone
+	t.Setenv(CustomChainCreate2DeployerEnvVar, "0xnope")
+	require.Error(t, ApplyCreate2DeployerOverride())
+	require.Equal(t, common.HexToAddress(testCreate2Deployer), script.DeterministicDeployerAddress)
 }

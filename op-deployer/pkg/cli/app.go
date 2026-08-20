@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/clean"
 	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/inspect"
 	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/manage"
+	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/standard"
 	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/upgrade"
 	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/verify"
 
@@ -22,6 +23,12 @@ func NewApp(versionWithMeta string) *cli.App {
 	app.Flags = cliapp.ProtectFlags(deployer.GlobalFlags)
 	app.Before = func(context *cli.Context) error {
 		if err := deployer.CreateCacheDir(context.String(deployer.CacheDirFlagName)); err != nil {
+			return err
+		}
+		// Applied here rather than per-command so that bootstrap, init, apply and upgrade all
+		// agree on which deterministic deployment proxy to use. Falls back to the canonical
+		// address when CUSTOM_CHAIN_CREATE2_DEPLOYER is unset.
+		if err := standard.ApplyCreate2DeployerOverride(); err != nil {
 			return err
 		}
 		return nil

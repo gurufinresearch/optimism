@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-chain-ops/addresses"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/script"
+	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/standard"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -24,6 +25,27 @@ func InitLiveStrategy(ctx context.Context, env *Env, intent *state.Intent, st *s
 
 	if err := initCommonChecks(intent, st); err != nil {
 		return err
+	}
+
+	l1ChainID, err := env.L1Client.ChainID(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get L1 chain ID: %w", err)
+	}
+
+	if l1ChainID.Cmp(intent.L1ChainIDBig()) != 0 {
+		return fmt.Errorf("l1 chain ID mismatch: got %d, expected %d", l1ChainID, intent.L1ChainID)
+	}
+
+	deployerCode, err := env.L1Client.CodeAt(ctx, script.DeterministicDeployerAddress, nil)
+	if err != nil {
+		return fmt.Errorf("failed to get deployer code: %w", err)
+	}
+	if len(deployerCode) == 0 {
+		return fmt.Errorf(
+			"deterministic deployer is not deployed at %s on this chain - deploy it there, or point %s at the address where this chain carries it",
+			script.DeterministicDeployerAddress,
+			standard.CustomChainCreate2DeployerEnvVar,
+		)
 	}
 
 	hasPredeployedOPCM := intent.OPCMAddress != nil
@@ -48,23 +70,6 @@ func InitLiveStrategy(ctx context.Context, env *Env, intent *state.Intent, st *s
 				OpcmImpl: *intent.OPCMAddress,
 			}
 		}
-	}
-
-	l1ChainID, err := env.L1Client.ChainID(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get L1 chain ID: %w", err)
-	}
-
-	if l1ChainID.Cmp(intent.L1ChainIDBig()) != 0 {
-		return fmt.Errorf("l1 chain ID mismatch: got %d, expected %d", l1ChainID, intent.L1ChainID)
-	}
-
-	deployerCode, err := env.L1Client.CodeAt(ctx, script.DeterministicDeployerAddress, nil)
-	if err != nil {
-		return fmt.Errorf("failed to get deployer code: %w", err)
-	}
-	if len(deployerCode) == 0 {
-		return fmt.Errorf("deterministic deployer is not deployed on this chain - please deploy it first")
 	}
 
 	// If the state has never been applied, we don't need to perform

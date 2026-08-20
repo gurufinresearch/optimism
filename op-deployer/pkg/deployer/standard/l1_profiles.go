@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ethereum-optimism/optimism/op-chain-ops/script"
 	"github.com/ethereum-optimism/superchain-registry/validation"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -27,6 +28,7 @@ const (
 	CustomChainProtocolVersionsOwnerVar = "CUSTOM_CHAIN_PROTOCOL_VERSIONS_OWNER"
 	CustomChainSuperchainProxyAdminVar  = "CUSTOM_CHAIN_SUPERCHAIN_PROXY_ADMIN"
 	CustomChainExplorerAPIURLEnvVar     = "CUSTOM_CHAIN_EXPLORER_API_URL"
+	CustomChainCreate2DeployerEnvVar    = "CUSTOM_CHAIN_CREATE2_DEPLOYER"
 )
 
 // ErrUnsupportedChainID is returned when no L1 profile is registered for a chain ID. It is
@@ -54,6 +56,11 @@ type L1Profile struct {
 	// ExplorerAPIURL is an Etherscan-compatible API endpoint used by the verify command. Empty
 	// when the chain has no known explorer.
 	ExplorerAPIURL string
+	// Create2Deployer is the address of the deterministic deployment proxy on this L1. It is the
+	// canonical address for every chain that carries the proxy where Ethereum does, and is
+	// overridable per chain because the proxy can only be placed at the canonical address by
+	// replaying a pre-EIP-155 transaction, which some L1s refuse.
+	Create2Deployer common.Address
 }
 
 // L1Profiles returns the L1 profiles available to this process, keyed by chain ID. Ethereum
@@ -73,6 +80,7 @@ func L1Profiles() (map[uint64]L1Profile, error) {
 			// DO NOT MODIFY THIS ADDRESS WITHOUT CLEARING IT WITH THE EVM SAFETY TEAM.
 			SuperchainProxyAdmin: common.HexToAddress("0x543bA4AADBAb8f9025686Bd03993043599c6fB04"),
 			ExplorerAPIURL:       "https://api.etherscan.io/api",
+			Create2Deployer:      script.DefaultDeterministicDeployerAddress,
 		},
 		11155111: {
 			Name:           "sepolia",
@@ -83,6 +91,7 @@ func L1Profiles() (map[uint64]L1Profile, error) {
 			// DO NOT MODIFY THIS ADDRESS WITHOUT CLEARING IT WITH THE EVM SAFETY TEAM.
 			SuperchainProxyAdmin: common.HexToAddress("0x189aBAAaa82DfC015A588A7dbaD6F13b1D3485Bc"),
 			ExplorerAPIURL:       "https://api-sepolia.etherscan.io/api",
+			Create2Deployer:      script.DefaultDeterministicDeployerAddress,
 		},
 	}
 
@@ -173,6 +182,11 @@ func customL1Profile() (*L1Profile, error) {
 		}
 	}
 
+	create2Deployer, err := Create2DeployerFromEnv()
+	if err != nil {
+		return nil, err
+	}
+
 	return &L1Profile{
 		Name:                 name,
 		ChainID:              chainID,
@@ -180,7 +194,36 @@ func customL1Profile() (*L1Profile, error) {
 		Roles:                roles,
 		SuperchainProxyAdmin: superchainProxyAdmin,
 		ExplorerAPIURL:       strings.TrimSpace(os.Getenv(CustomChainExplorerAPIURLEnvVar)),
+		Create2Deployer:      create2Deployer,
 	}, nil
+}
+
+// Create2DeployerFromEnv resolves the deterministic deployment proxy address from the
+// environment. An unset or blank CUSTOM_CHAIN_CREATE2_DEPLOYER falls back to the canonical
+// address, so callers that do not set it keep the historical behaviour. A malformed value is an
+// error rather than a silent fallback, because silently deploying against the wrong proxy
+// produces contracts at addresses nobody expects.
+func Create2DeployerFromEnv() (common.Address, error) {
+	addr, err := envAddress(CustomChainCreate2DeployerEnvVar)
+	if err != nil {
+		return common.Address{}, err
+	}
+	if addr == (common.Address{}) {
+		return script.DefaultDeterministicDeployerAddress, nil
+	}
+	return addr, nil
+}
+
+// ApplyCreate2DeployerOverride points the script package at the deterministic deployment proxy
+// named by the environment, so that predicted CREATE2 addresses and broadcast CREATE2 calls agree.
+// It is a no-op when CUSTOM_CHAIN_CREATE2_DEPLOYER is unset.
+func ApplyCreate2DeployerOverride() error {
+	addr, err := Create2DeployerFromEnv()
+	if err != nil {
+		return err
+	}
+	script.SetDeterministicDeployerAddress(addr)
+	return nil
 }
 
 // envUint64 reads an optional uint64 from the environment. An unset or blank variable returns 0.
